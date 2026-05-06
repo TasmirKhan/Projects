@@ -1,0 +1,63 @@
+const cells = document.querySelectorAll('.cell');
+const statusEl = document.getElementById('status');
+const restartButton = document.getElementById('restart');
+const modeSelect = document.getElementById('mode');
+const playerNameEl = document.getElementById('player-name');
+
+const PLAYER_X = 'X';
+const PLAYER_O = 'O';
+
+const winningCombinations = [
+  [0, 1, 2], [3, 4, 5], [6, 7, 8],
+  [0, 3, 6], [1, 4, 7], [2, 5, 8],
+  [0, 4, 8], [2, 4, 6],
+];
+
+let boardState = Array(9).fill('');
+let currentPlayer = PLAYER_X;
+let gameIsActive = true;
+let gameMode = 'pvp';
+let audioCtx;
+const playerName = sessionStorage.getItem('tttPlayer');
+
+if (!playerName) {
+  window.location.href = 'login.html';
+}
+playerNameEl.textContent = `Player: ${playerName}`;
+
+function getAudioCtx() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
+function beep(ctx, start, freq, duration, wave) { const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.type = wave; osc.frequency.setValueAtTime(freq, start); gain.gain.setValueAtTime(0.0001, start); gain.gain.exponentialRampToValueAtTime(0.08, start + 0.01); gain.gain.exponentialRampToValueAtTime(0.0001, start + duration); osc.connect(gain); gain.connect(ctx.destination); osc.start(start); osc.stop(start + duration); }
+function playTone(type) { const ctx = getAudioCtx(); const now = ctx.currentTime; if (type === 'place') beep(ctx, now, 520, 0.07, 'triangle'); else if (type === 'win') { beep(ctx, now, 660, 0.12, 'sine'); beep(ctx, now + 0.12, 880, 0.12, 'sine'); beep(ctx, now + 0.24, 1100, 0.16, 'sine'); } else if (type === 'draw') { beep(ctx, now, 440, 0.1, 'sawtooth'); beep(ctx, now + 0.12, 392, 0.12, 'sawtooth'); } else if (type === 'restart') { beep(ctx, now, 700, 0.08, 'square'); beep(ctx, now + 0.1, 520, 0.08, 'square'); } }
+
+function updateLeaderboard(result) {
+  const data = JSON.parse(localStorage.getItem('tttLeaderboard') || '{}');
+  data[playerName] = data[playerName] || { wins: 0, losses: 0, draws: 0 };
+  if (result === 'win') data[playerName].wins += 1;
+  if (result === 'loss') data[playerName].losses += 1;
+  if (result === 'draw') data[playerName].draws += 1;
+  localStorage.setItem('tttLeaderboard', JSON.stringify(data));
+}
+
+function updateStatus(message) { statusEl.textContent = message; }
+function checkWinner() { return winningCombinations.find(([a,b,c]) => boardState[a] && boardState[a]===boardState[b] && boardState[a]===boardState[c]); }
+function isDraw() { return boardState.every((c) => c !== ''); }
+function makeMove(index, player) { boardState[index] = player; const cell = cells[index]; cell.textContent = player; cell.classList.add(player.toLowerCase()); cell.disabled = true; playTone('place'); }
+function endGame(message, toneType, result) { gameIsActive = false; updateStatus(message); cells.forEach((cell) => { cell.disabled = true; }); playTone(toneType); if (result) updateLeaderboard(result); }
+function handleTurnEnd() {
+  if (checkWinner()) {
+    const result = currentPlayer === PLAYER_X ? 'win' : (gameMode === 'ai' ? 'loss' : null);
+    endGame(`Player ${currentPlayer} wins!`, 'win', result);
+    return true;
+  }
+  if (isDraw()) { endGame('It\'s a draw!', 'draw', 'draw'); return true; }
+  currentPlayer = currentPlayer === PLAYER_X ? PLAYER_O : PLAYER_X; updateStatus(`Current turn: ${currentPlayer}`); return false;
+}
+function getBestAIMove() { const empties = boardState.map((v,i)=>v===''?i:null).filter((v)=>v!==null); for (const i of empties){boardState[i]=PLAYER_O; if(checkWinner()){boardState[i]=''; return i;} boardState[i]='';} for(const i of empties){boardState[i]=PLAYER_X; if(checkWinner()){boardState[i]=''; return i;} boardState[i]='';} if(boardState[4]==='') return 4; const corners=[0,2,6,8].filter((i)=>boardState[i]===''); if(corners.length) return corners[Math.floor(Math.random()*corners.length)]; return empties[Math.floor(Math.random()*empties.length)]; }
+function handleAIMove() { if (!gameIsActive || gameMode !== 'ai' || currentPlayer !== PLAYER_O) return; const aiMove = getBestAIMove(); if (aiMove===undefined) return; setTimeout(() => { if (!gameIsActive) return; makeMove(aiMove, PLAYER_O); handleTurnEnd(); }, 320); }
+function handleCellClick(event) { const index = Number(event.currentTarget.dataset.index); if (!gameIsActive || boardState[index] || (gameMode === 'ai' && currentPlayer === PLAYER_O)) return; makeMove(index, currentPlayer); const ended = handleTurnEnd(); if (!ended) handleAIMove(); }
+function resetGame() { boardState = Array(9).fill(''); currentPlayer = PLAYER_X; gameIsActive = true; cells.forEach((cell) => { cell.textContent=''; cell.classList.remove('x','o'); cell.disabled=false; }); updateStatus('Current turn: X'); playTone('restart'); }
+function handleModeChange() { gameMode = modeSelect.value; resetGame(); }
+
+cells.forEach((cell) => cell.addEventListener('click', handleCellClick));
+restartButton.addEventListener('click', resetGame);
+modeSelect.addEventListener('change', handleModeChange);

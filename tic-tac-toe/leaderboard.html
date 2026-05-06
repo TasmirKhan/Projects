@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tic Tac Toe | Leaderboard</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="game-container">
+      <h1>Leaderboard</h1>
+      <p class="status">Top player records stored locally.</p>
+      <div id="leaderboard" class="leaderboard"></div>
+      <div class="page-links">
+        <a class="nav-link" href="login.html">Login</a>
+        <a class="nav-link" href="index.html">Play Game</a>
+      </div>
+    </main>
+    <script>
+      const board = document.getElementById('leaderboard');
+      const data = JSON.parse(localStorage.getItem('tttLeaderboard') || '{}');
+      const entries = Object.entries(data).sort((a, b) => b[1].wins - a[1].wins);
+
+      if (!entries.length) {
+        board.innerHTML = '<p class="status">No games recorded yet.</p>';
+      } else {
+        board.innerHTML = entries
+          .map(([name, stats], i) => `<div class="row"><span>#${i + 1} ${name}</span><span>W:${stats.wins} L:${stats.losses} D:${stats.draws}</span></div>`)
+          .join('');
+      }
+    </script>
+  </body>
+</html>
