@@ -6,6 +6,7 @@ const playerNameEl = document.getElementById('player-name');
 
 const PLAYER_X = 'X';
 const PLAYER_O = 'O';
+const AI_MEMORY_KEY = 'tttAiMemory';
 
 const winningCombinations = [
   [0, 1, 2], [3, 4, 5], [6, 7, 8],
@@ -18,11 +19,10 @@ let currentPlayer = PLAYER_X;
 let gameIsActive = true;
 let gameMode = 'pvp';
 let audioCtx;
-const playerName = sessionStorage.getItem('tttPlayer');
+let aiMoveHistory = [];
 
-if (!playerName) {
-  window.location.href = 'login.html';
-}
+const playerName = sessionStorage.getItem('tttPlayer');
+if (!playerName) window.location.href = 'login.html';
 playerNameEl.textContent = `Player: ${playerName}`;
 
 function getAudioCtx() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
@@ -38,25 +38,154 @@ function updateLeaderboard(result) {
   localStorage.setItem('tttLeaderboard', JSON.stringify(data));
 }
 
+function getAIMemory() {
+  return JSON.parse(localStorage.getItem(AI_MEMORY_KEY) || '{}');
+}
+
+function updateAIMemory(gameResult) {
+  if (gameMode !== 'ai' || !aiMoveHistory.length) return;
+  const memory = getAIMemory();
+  const delta = gameResult === 'loss' ? -2 : gameResult === 'win' ? 1 : 0.5;
+  aiMoveHistory.forEach((key) => {
+    memory[key] = (memory[key] || 0) + delta;
+  });
+  localStorage.setItem(AI_MEMORY_KEY, JSON.stringify(memory));
+}
+
 function updateStatus(message) { statusEl.textContent = message; }
-function checkWinner() { return winningCombinations.find(([a,b,c]) => boardState[a] && boardState[a]===boardState[b] && boardState[a]===boardState[c]); }
-function isDraw() { return boardState.every((c) => c !== ''); }
-function makeMove(index, player) { boardState[index] = player; const cell = cells[index]; cell.textContent = player; cell.classList.add(player.toLowerCase()); cell.disabled = true; playTone('place'); }
-function endGame(message, toneType, result) { gameIsActive = false; updateStatus(message); cells.forEach((cell) => { cell.disabled = true; }); playTone(toneType); if (result) updateLeaderboard(result); }
+function checkWinnerOn(board) { return winningCombinations.find(([a, b, c]) => board[a] && board[a] === board[b] && board[a] === board[c]); }
+function checkWinner() { return checkWinnerOn(boardState); }
+function isDrawOn(board) { return board.every((c) => c !== ''); }
+function isDraw() { return isDrawOn(boardState); }
+
+function makeMove(index, player) {
+  boardState[index] = player;
+  const cell = cells[index];
+  cell.textContent = player;
+  cell.classList.add(player.toLowerCase());
+  cell.disabled = true;
+  playTone('place');
+}
+
+function endGame(message, toneType, result) {
+  gameIsActive = false;
+  updateStatus(message);
+  cells.forEach((cell) => { cell.disabled = true; });
+  playTone(toneType);
+  if (result) updateLeaderboard(result);
+  updateAIMemory(result);
+}
+
 function handleTurnEnd() {
   if (checkWinner()) {
     const result = currentPlayer === PLAYER_X ? 'win' : (gameMode === 'ai' ? 'loss' : null);
     endGame(`Player ${currentPlayer} wins!`, 'win', result);
     return true;
   }
-  if (isDraw()) { endGame('It\'s a draw!', 'draw', 'draw'); return true; }
-  currentPlayer = currentPlayer === PLAYER_X ? PLAYER_O : PLAYER_X; updateStatus(`Current turn: ${currentPlayer}`); return false;
+  if (isDraw()) {
+    endGame('It\'s a draw!', 'draw', 'draw');
+    return true;
+  }
+  currentPlayer = currentPlayer === PLAYER_X ? PLAYER_O : PLAYER_X;
+  updateStatus(`Current turn: ${currentPlayer}`);
+  return false;
 }
-function getBestAIMove() { const empties = boardState.map((v,i)=>v===''?i:null).filter((v)=>v!==null); for (const i of empties){boardState[i]=PLAYER_O; if(checkWinner()){boardState[i]=''; return i;} boardState[i]='';} for(const i of empties){boardState[i]=PLAYER_X; if(checkWinner()){boardState[i]=''; return i;} boardState[i]='';} if(boardState[4]==='') return 4; const corners=[0,2,6,8].filter((i)=>boardState[i]===''); if(corners.length) return corners[Math.floor(Math.random()*corners.length)]; return empties[Math.floor(Math.random()*empties.length)]; }
-function handleAIMove() { if (!gameIsActive || gameMode !== 'ai' || currentPlayer !== PLAYER_O) return; const aiMove = getBestAIMove(); if (aiMove===undefined) return; setTimeout(() => { if (!gameIsActive) return; makeMove(aiMove, PLAYER_O); handleTurnEnd(); }, 320); }
-function handleCellClick(event) { const index = Number(event.currentTarget.dataset.index); if (!gameIsActive || boardState[index] || (gameMode === 'ai' && currentPlayer === PLAYER_O)) return; makeMove(index, currentPlayer); const ended = handleTurnEnd(); if (!ended) handleAIMove(); }
-function resetGame() { boardState = Array(9).fill(''); currentPlayer = PLAYER_X; gameIsActive = true; cells.forEach((cell) => { cell.textContent=''; cell.classList.remove('x','o'); cell.disabled=false; }); updateStatus('Current turn: X'); playTone('restart'); }
-function handleModeChange() { gameMode = modeSelect.value; resetGame(); }
+
+function minimax(board, depth, isMaximizing) {
+  const winner = checkWinnerOn(board);
+  if (winner) {
+    const winningPlayer = board[winner[0]];
+    return winningPlayer === PLAYER_O ? 10 - depth : depth - 10;
+  }
+  if (isDrawOn(board)) return 0;
+
+  if (isMaximizing) {
+    let bestScore = -Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (board[i] !== '') continue;
+      board[i] = PLAYER_O;
+      const score = minimax(board, depth + 1, false);
+      board[i] = '';
+      bestScore = Math.max(bestScore, score);
+    }
+    return bestScore;
+  }
+
+  let bestScore = Infinity;
+  for (let i = 0; i < 9; i++) {
+    if (board[i] !== '') continue;
+    board[i] = PLAYER_X;
+    const score = minimax(board, depth + 1, true);
+    board[i] = '';
+    bestScore = Math.min(bestScore, score);
+  }
+  return bestScore;
+}
+
+function getBestAIMove() {
+  const memory = getAIMemory();
+  let bestScore = -Infinity;
+  let bestMove = -1;
+
+  for (let i = 0; i < 9; i++) {
+    if (boardState[i] !== '') continue;
+    boardState[i] = PLAYER_O;
+    const stateKey = boardState.join('');
+    const memoryBonus = memory[stateKey] || 0;
+    const score = minimax(boardState, 0, false) + memoryBonus;
+    boardState[i] = '';
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMove = i;
+    }
+  }
+
+  return bestMove;
+}
+
+function handleAIMove() {
+  if (!gameIsActive || gameMode !== 'ai' || currentPlayer !== PLAYER_O) return;
+  const aiMove = getBestAIMove();
+  if (aiMove === -1) return;
+
+  setTimeout(() => {
+    if (!gameIsActive) return;
+    makeMove(aiMove, PLAYER_O);
+    aiMoveHistory.push(boardState.join(''));
+    handleTurnEnd();
+  }, 320);
+}
+
+function handleCellClick(event) {
+  const index = Number(event.currentTarget.dataset.index);
+  if (!gameIsActive || boardState[index] || (gameMode === 'ai' && currentPlayer === PLAYER_O)) return;
+
+  makeMove(index, currentPlayer);
+  const ended = handleTurnEnd();
+  if (!ended) handleAIMove();
+}
+
+function resetGame() {
+  boardState = Array(9).fill('');
+  currentPlayer = PLAYER_X;
+  gameIsActive = true;
+  aiMoveHistory = [];
+
+  cells.forEach((cell) => {
+    cell.textContent = '';
+    cell.classList.remove('x', 'o');
+    cell.disabled = false;
+  });
+
+  updateStatus('Current turn: X');
+  playTone('restart');
+}
+
+function handleModeChange() {
+  gameMode = modeSelect.value;
+  resetGame();
+}
 
 cells.forEach((cell) => cell.addEventListener('click', handleCellClick));
 restartButton.addEventListener('click', resetGame);
