@@ -9,6 +9,17 @@
   <body>
     <main class="game-container">
       <h1>Tic Tac Toe</h1>
+      <div class="page-links"><a class="nav-link" href="leaderboard.html">Leaderboard</a><a class="nav-link" href="login.html">Switch Player</a></div>
+      <p id="player-name" class="status"></p>
+
+      <div class="controls">
+        <label for="mode" class="control-label">Game mode</label>
+        <select id="mode" class="mode-select" aria-label="Select game mode">
+          <option value="pvp">Two players</option>
+          <option value="ai">Single player vs AI</option>
+        </select>
+      </div>
+
       <p id="status" class="status" aria-live="polite">Current turn: X</p>
 
       <section class="board" aria-label="Tic Tac Toe board">

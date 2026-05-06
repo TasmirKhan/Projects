@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tic Tac Toe | Login</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="game-container auth-card">
+      <h1>Welcome</h1>
+      <p class="status">Enter your name to play Tic Tac Toe.</p>
+      <form id="login-form" class="auth-form">
+        <input id="username" class="mode-select" type="text" maxlength="20" placeholder="Your name" required />
+        <button class="restart-button" type="submit">Start Game</button>
+      </form>
+      <a class="nav-link" href="leaderboard.html">View Leaderboard</a>
+    </main>
+    <script>
+      const form = document.getElementById('login-form');
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const name = document.getElementById('username').value.trim();
+        if (!name) return;
+        sessionStorage.setItem('tttPlayer', name);
+        window.location.href = 'index.html';
+      });
+    </script>
+  </body>
+</html>
