@@ -1,2 +1,4 @@
 @tailwind base;@tailwind components;@tailwind utilities;
 body{@apply bg-background text-white antialiased;} .card{@apply border border-line bg-panel rounded-2xl p-5;} .muted{@apply text-zinc-400;}
+
+html{scroll-behavior:smooth;}
