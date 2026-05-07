@@ -1,0 +1,2 @@
+import { logs } from '@/lib/mock-data';
+export default function Audit(){return <main className='max-w-5xl mx-auto px-6 py-8'><h1 className='text-3xl mb-4'>Audit Logs</h1><div className='card'><div className='grid grid-cols-3 muted text-xs mb-2'><span>Time</span><span>Event</span><span>Status</span></div>{logs.map(l=><div key={l[0]+l[1]} className='grid grid-cols-3 py-2 border-t border-line text-sm'><span>{l[0]}</span><span>{l[1]}</span><span>completed</span></div>)}</div></main>}
