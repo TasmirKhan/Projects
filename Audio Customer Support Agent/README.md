@@ -1,27 +1,42 @@
-# Audio Customer Support Agent
+# AI Audio Customer Support Agent
 
-STT → LLM (with RAG) → TTS customer support assistant scaffold.
+Production-ready scaffold for STT → RAG → LLM → TTS support workflows.
 
-## Quick start
+## Features
+- Voice conversation (record in Streamlit, transcribe via Whisper)
+- Text conversation fallback
+- RAG retrieval via ChromaDB
+- Knowledge base document upload endpoint (`/kb/upload`)
+- Session-based conversation memory
+- Audio response playback via Edge TTS
+- Health/status endpoint for monitoring
 
+## Run locally
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-python src/utils/kb_test.py
-python -m src.api.server
-```
-
-Then run UI:
-
-```bash
+python -m uvicorn src.api.server:app --host 0.0.0.0 --port 8000
 streamlit run streamlit_app.py
 ```
 
-## Defaults used in this scaffold
-- STT: OpenAI Whisper (local)
-- LLM: OpenAI Chat Completions API
-- TTS: Edge TTS (local)
+## API endpoints
+- `GET /health`
+- `POST /chat/text`
+- `POST /chat/audio`
+- `GET /chat/audio/{text}`
+- `POST /kb/upload`
 
-These choices avoid prohibited real-time framework libraries.
+## Deployment notes
+### Render / HuggingFace Spaces
+- Start command: `uvicorn src.api.server:app --host 0.0.0.0 --port $PORT`
+- Add env vars from `.env.example`
+
+### Streamlit Cloud
+- App entry: `streamlit_app.py`
+- Backend should be publicly reachable and set in sidebar Backend URL.
+
+## Supported KB formats
+- TXT supported directly.
+- PDF/DOCX can be uploaded; add parser extensions in `/kb/upload` for richer extraction.

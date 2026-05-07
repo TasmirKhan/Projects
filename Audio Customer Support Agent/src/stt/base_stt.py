@@ -21,5 +21,5 @@ class STTService:
         with tempfile.NamedTemporaryFile(suffix=".wav") as temp_file:
             temp_file.write(audio_bytes)
             temp_file.flush()
-            result = self.client.transcribe(temp_file.name)
+            result = self.client.transcribe(temp_file.name, language=self.config.get("language", "en"))
         return (result.get("text") or "").strip()
