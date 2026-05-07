@@ -25,7 +25,7 @@ AgentForge AI is an enterprise AI workforce platform where humans define outcome
 
 ## Environment Variables
 Create `.env.local`:
-- `OPENAI_API_KEY=your_key_here`
+- `GEMINI_API_KEY=your_key_here`
 
 ## Screenshot Placeholders
 - `/docs/screenshots/landing.png`
