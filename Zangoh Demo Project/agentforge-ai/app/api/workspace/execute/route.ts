@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { WorkspaceResponse } from '@/types/workspace';
 import { sendWorkflowEmail } from '@/services/email/smtp';
-import { runGeminiPrompt } from '@/lib/gemini';
+import { GeminiQuotaError, runGeminiPrompt } from '@/lib/gemini';
 
 function safeParse(text:string){ try{return JSON.parse(text);}catch{return null;} }
 function fallback(task:string, employee:string, reason:string): WorkspaceResponse {
@@ -29,6 +29,9 @@ export async function POST(req: Request) {
     }
     return NextResponse.json({ ...parsed, outputs:{...parsed.outputs, content:`${parsed.outputs?.content || ''}\n\nModel: ${modelName}\nEmail Status: ${emailStatus}` } });
   } catch(e:any) {
+    if (e instanceof GeminiQuotaError) {
+      return NextResponse.json(fallback('Unknown task','Digital Employee',`Quota exceeded${e.retryAfterSeconds ? `, retry in ${e.retryAfterSeconds}s` : ''}`), { status:200 });
+    }
     return NextResponse.json(fallback('Unknown task','Digital Employee',e?.message || 'Unhandled execution error'), { status:200 });
   }
 }

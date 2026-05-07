@@ -1,5 +1,5 @@
 import { sse } from '@/utils/sse';
-import { runGeminiPrompt } from '@/lib/gemini';
+import { GeminiQuotaError, runGeminiPrompt } from '@/lib/gemini';
 
 export async function POST(req: Request) {
   const { task, employee } = await req.json();
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
         let parsed:any={}; try{parsed=JSON.parse(text);}catch{ controller.enqueue(enc.encode(sse('error',{message:`Malformed Gemini JSON response from ${modelName}`}))); controller.close(); return; }
         controller.enqueue(enc.encode(sse('progress',{ stage:'OUTPUT_GENERATION', message:`Generating output via ${modelName}` })));
         controller.enqueue(enc.encode(sse('result', parsed)));
-      } catch(e:any){ controller.enqueue(enc.encode(sse('error',{ message:e?.message || 'Streaming failed' }))); }
+      } catch(e:any){ if (e instanceof GeminiQuotaError) { controller.enqueue(enc.encode(sse('error',{ message:`Gemini quota exceeded${e.retryAfterSeconds ? `, retry in ${e.retryAfterSeconds}s` : ''}. Running fallback mode.` }))); } else { controller.enqueue(enc.encode(sse('error',{ message:e?.message || 'Streaming failed' }))); } }
       finally { controller.close(); }
     }
   });
