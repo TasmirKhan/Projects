@@ -1,0 +1,1 @@
+export async function runEmployee(task:string,employee:string){const r=await fetch('/api/ai/execute',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task,employee})});if(!r.ok) throw new Error('Execution failed');return r.json();}
