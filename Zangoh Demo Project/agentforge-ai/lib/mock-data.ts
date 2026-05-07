@@ -1,0 +1,3 @@
+export const stats=[{label:'Tasks Automated',value:'12,840'},{label:'Time Saved',value:'3,102 hrs'},{label:'Active Employees',value:'3'},{label:'Human Escalations',value:'6.8%'},{label:'Success Rate',value:'97.2%'}];
+export const employees=[{name:'Sales Employee',status:'Active',tasks:214,efficiency:95,workload:'High'},{name:'Support Employee',status:'Active',tasks:398,efficiency:92,workload:'Medium'},{name:'Operations Employee',status:'Monitoring',tasks:166,efficiency:94,workload:'Low'}];
+export const logs=[['09:31','Task received'],['09:31','Intent classified'],['09:32','Workflow generated'],['09:33','Response drafted'],['09:34','Human approval requested']];
