@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from typing import Any
 
 import chromadb
@@ -26,35 +27,48 @@ class CustomerSupportAgent:
             self.collection.add(
                 ids=[f"doc_{i}" for i in range(len(DOCS))],
                 documents=[d["content"] for d in DOCS],
-                metadatas=[{"title": d["title"]} for d in DOCS],
+                metadatas=[{"title": d["title"], "source": "default", "created_at": datetime.utcnow().isoformat()} for d in DOCS],
             )
 
-    async def _rag_search(self, query: str) -> str:
-        results = self.collection.query(
-            query_texts=[query],
-            n_results=3,
-            include=["documents", "metadatas", "distances"],
+    async def ingest_document(self, title: str, content: str, source: str = "upload") -> str:
+        doc_id = f"{source}_{abs(hash(title + content))}"
+        self.collection.upsert(
+            ids=[doc_id],
+            documents=[content],
+            metadatas=[{"title": title, "source": source, "created_at": datetime.utcnow().isoformat()}],
         )
+        return doc_id
+
+    async def _rag_search(self, query: str) -> dict[str, Any]:
+        results = self.collection.query(query_texts=[query], n_results=3, include=["documents", "metadatas", "distances"])
         docs = results.get("documents", [[]])[0]
         metas = results.get("metadatas", [[]])[0]
+        distances = results.get("distances", [[]])[0]
         if not docs:
-            return "No matching policy found in the knowledge base."
+            return {"context": "No matching policy found in the knowledge base.", "sources": []}
 
-        formatted_results = []
-        for doc, meta in zip(docs, metas):
+        formatted = []
+        sources = []
+        for doc, meta, distance in zip(docs, metas, distances):
             title = meta.get("title", "Untitled") if meta else "Untitled"
-            formatted_results.append(f"**{title}**\n{doc}")
-        return "\n\n".join(formatted_results)
+            source = meta.get("source", "unknown") if meta else "unknown"
+            formatted.append(f"**{title}**\n{doc}")
+            sources.append({"title": title, "source": source, "distance": float(distance)})
+        return {"context": "\n\n".join(formatted), "sources": sources}
 
-    async def process_query(self, query: str) -> str:
-        context = await self._rag_search(query)
+    async def process_query(self, query: str, history: list[dict[str, str]] | None = None) -> dict[str, Any]:
+        rag = await self._rag_search(query)
+        history_text = "\n".join([f"{m['role']}: {m['content']}" for m in (history or [])[-6:]])
         prompt = (
-            "You are a customer support assistant. Answer clearly and only use the provided context.\n\n"
-            f"Context:\n{context}\n\nCustomer query: {query}"
+            "You are a professional customer support assistant. Be concise, empathetic, and grounded in provided KB context. "
+            "If information is missing, explicitly say so and offer next steps.\n\n"
+            f"Conversation history:\n{history_text or 'N/A'}\n\n"
+            f"Context:\n{rag['context']}\n\nCustomer query: {query}"
         )
         response = await self.client.chat.completions.create(
             model=self.model,
             temperature=self.temperature,
             messages=[{"role": "user", "content": prompt}],
         )
-        return response.choices[0].message.content or "Sorry, I could not generate a response."
+        text = response.choices[0].message.content or "Sorry, I could not generate a response."
+        return {"response": text, "sources": rag["sources"], "context": rag["context"]}
