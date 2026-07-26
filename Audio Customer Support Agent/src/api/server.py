@@ -69,7 +69,7 @@ async def chat_audio(session_id: str = Form("default"), audio: UploadFile = File
         return JSONResponse(status_code=500, content={"ok": False, "error": str(exc)})
 
 
-@app.get("/chat/audio/{text}")
+@app.get("/chat/audio/{text:path}")
 async def synth_audio(text: str) -> StreamingResponse:
     if not pipeline or not pipeline.tts:
         raise HTTPException(status_code=503, detail="Pipeline not ready")
