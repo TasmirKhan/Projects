@@ -64,6 +64,9 @@ async def chat_audio(session_id: str = Form("default"), audio: UploadFile = File
         memory[session_id].append({"role": "user", "content": output["transcript"]})
         memory[session_id].append({"role": "assistant", "content": output["response"]})
         return JSONResponse({"ok": True, "session_id": session_id, "transcript": output["transcript"], "response": output["response"], "sources": output["sources"]})
+    except RuntimeError as exc:
+        logger.warning("audio chat unavailable: %s", exc)
+        return JSONResponse(status_code=503, content={"ok": False, "error": str(exc)})
     except Exception as exc:
         logger.exception("audio chat failure")
         return JSONResponse(status_code=500, content={"ok": False, "error": str(exc)})
